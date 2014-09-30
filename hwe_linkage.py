@@ -1,7 +1,9 @@
 import csv
 import sys
+import scipy
 from sets import Set
 from collections import OrderedDict
+from scipy.stats.stats import chisquare
 
 def parse_genotype_file(gt_file):
     loci = []
@@ -68,20 +70,79 @@ def chrom_fraction(P, n, m):
     for k in range(0, m/2):
         for i in range(0, n):
             Pji = 0
-            for j in range(0, i-1):
+            for j in range(0, i):
                 Pji += P[k][j][i]
             Pij = 0
             for j in range(i+1, n):
                 Pij += P[k][i][j]
-            p[k][i] = P[k][i][i] + 0.5*Pji + Pij
+            p[k][i] = P[k][i][i] + 0.5*Pji + 0.5*Pij
     return p
-            
 
-def calc_hwe(gt_file, sig_value):
+
+def expected(p, n, m, total_pop, matrix): 
+    E = [[[0 for k in xrange(n)] for j in xrange(n)] for i in xrange(m/2)]
+    for k in range(0, m)[::2]:
+        for i in range (0,n):
+            for j in range (0,n):
+                if (i <= j):
+                    if (matrix[i][k] != matrix[j][k+1]):   
+                        E[k/2][i][j] = 2 * float(p[k/2][i]) * float(p[k/2][j])
+                    else:
+                        E[k/2][i][j] = float(p[k/2][i]) * float(p[k/2][i])
+    return E
+
+
+def chi_square(E, n, m, P, L, sigValue, loci, pop_size):
     
-    total_pop, loci, allels, matrix = parse_genotype_file(gt_file)
+    nhwe_loci = []
+    for k in range(0, m/2):
+        obs = []
+        exp = []        
+        for i in range(0, n):
+            for j in range(0, n):
+                if (E[k][i][j] != 0):
+                    #print P[k][i][j]
+                    exp.append(E[k][i][j]*pop_size)
+                    obs.append(P[k][i][j]*pop_size)
+                
+        ddof = 0.5 * len(L[loci[k*2]])*(len(L[loci[k*2]])-1)
+        chisq, p = chisquare(obs, exp, ddof)
+        print p
+        if (p < sigValue):
+            nhwe_loci.append(loci[k*2])     
     
-    alinlocus = allels_loci(matrix, loci);
+    return nhwe_loci
+
+def ld_ppl_allel(matrix, a1, a2, a3, a4, l1, l2):
+    ppl = 0
+    n = len(matrix)
+    for i in range(0,n):
+        if (((matrix[i][l1] == a1 and matrix[i][l1+1] == a2) or (matrix[i][l1] == a2 and matrix[i][l1+1] == a1))
+            and (((matrix[i][l2] == a3 and matrix[i][l2+1] == a4) or (matrix[i][l2] == a4 and matrix[i][l2+1] == a3)))):
+                ppl += 1
+    return ppl
+
+
+def ld_actual_value(P, n, m, matrix, pop_size):
+    
+    N = [[[[[[0 for k in xrange(n)]for j in xrange(n)]for i in xrange(n)] for l in xrange(n)]for q in xrange(m/2)] for u in xrange(m/2)]
+    E = [[[[[[0 for k in xrange(n)]for j in xrange(n)]for i in xrange(n)] for l in xrange(n)]for q in xrange(m/2)] for u in xrange(m/2)]
+    for k in range (0,m/2):
+        for s in range (0, m/2):
+            for i in range(0, n):
+                for j in range(0,n):
+                    for r in range(0,n):
+                        for t in range(0,n):
+                            if (i <=j and r <= t):
+                                N[k][s][i][j][r][t] = ld_ppl_allel(matrix, i, j, r, t, k, s)
+                                E[k][s][i][j][r][t] = P[k][i][j] * P[s][r][t] * pop_size
+    return N, E
+                            
+                         
+                            
+def calc_hwe(total_pop, loci, allels, matrix, sigValue):
+    
+    L = allels_loci(matrix, loci);
     
     n = len(allels)
     m = len(loci)
@@ -98,7 +159,42 @@ def calc_hwe(gt_file, sig_value):
     
     p = chrom_fraction(P, n, m)
     
+    E = expected(p, n, m, total_pop, matrix)
     
+    nhwe_loci = chi_square(E, n, m, P, L, sigValue, loci, total_pop)
+    total_pop
+    return nhwe_loci, P, L
+
+
+def ld_chi_square(E, n, m, P, L, sigValue, loci, pop_size):
+    
+    ld_loci = []
+    for k in range(0, m/2):
+        for s in range(0,m/2):
+            obs = []
+            exp = []        
+            for i in range(0, n):
+                for j in range(0, n):
+                    for r in range(0,n):
+                        for t in range(0,n):
+                            if (E[k][s][i][j][r][t] != 0):
+                                exp.append(E[k][s][i][j][r][t])
+                                obs.append(P[k][s][i][j][r][t])                
+            ddofk = 0.5 * len(L[loci[k*2]])*(len(L[loci[k*2]])-1)
+            ddofs = 0.5 * len(L[loci[s*2]])*(len(L[loci[s*2]])-1)
+            ddof = (ddofk-1) * (ddofs-1)
+            chisq, p = chisquare(obs, exp, ddof)
+            #print p
+            if (p < sigValue):
+                ld_loci.append((loci[k*2], loci[s*2]))     
+    
+    return ld_loci
+
+def calc_lindis(pop_size, loci, allels, matrix, P, L, sigValue):
+    n = len(allels)
+    m = len(loci)
+    N, E = ld_actual_value(P, n, m, matrix, pop_size)
+    return ld_chi_square(E, n, m, N, L, sigValue, loci, pop_size)
     
 
 
@@ -107,7 +203,12 @@ if __name__ == "__main__":
     sig_value = 0.5
     #gt_file = sys.argv[1]
     #sig_value = sys.argv[2]
-    calc_hwe(genotype, sig_value)
+    pop_size, loci, allels, matrix = parse_genotype_file(genotype)
+    nhwe_loci, P, L = calc_hwe(pop_size, loci, allels, matrix, sig_value)
+    ld_loci = calc_lindis(pop_size, loci, allels, matrix, P, L, sig_value)
+    for locus in ld_loci:
+        print locus
+    
     
                         
 
