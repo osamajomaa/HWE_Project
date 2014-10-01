@@ -1,0 +1,36 @@
+hwe_linkage3.py genotypes/genotype.african_american.csv .05
+D13S317
+D8S1179
+FESFPS
+TPOX
+
+
+python3 hwe_linkage3.py genotypes/genotype.american.csv .05
+D13S317
+D16S539
+D5S818
+D7S820
+F13B
+Penta C
+
+
+python3 hwe_linkage3.py genotypes/genotype.asian_american.csv .05
+D10S1248
+D5S818
+D7S820
+FESFPS
+
+python3 hwe_linkage3.py genotypes/genotype.caucasian_american.csv .05
+D3S1358
+D7S820
+F13B
+FESFPS
+LPL
+
+python3 hwe_linkage3.py genotypes/genotype.hispanic_american.csv .05
+D13S317
+D3S1358
+D7S820
+FESFPS
+Penta C
+TPOX
