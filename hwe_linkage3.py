@@ -18,6 +18,7 @@ class HWE_Linkage:
     def compute(self, gt_file, sig_value):
         self.parse_genotype_file(gt_file)
         self.calc_hwe(sig_value)
+        self.calc_le(sig_value)
 
 
     def parse_genotype_file(self, gt_file):
@@ -172,7 +173,74 @@ class HWE_Linkage:
                 not_hwe_loci.append(namek)
         return not_hwe_loci
 
+    def calc_le(self, sig_value):
+        """
+        """
+        self.calculate_alleles_loci();
+        N, P, E, p = self.calculate_allele_frequencies();
 
+        for locusPair in self.find_not_link_loci(N, E, sig_value):
+            print(locusPair)
+
+
+    def find_not_link_loci(self, N, E, sigValue):
+        '''
+        Determines and returns a list of pairs of loci that are self.not in linkage equilibrium.
+        '''
+        not_link_loci = []
+        k = 0
+        s = 1
+        ijk_count = 0
+        rts_count = 0
+        while k < (self.m//2 - 1):
+            s = k + 1
+            namek = self.loci[k * 2]
+            ijk_obs = []
+            ijk_exp = []
+            for ival, jval in N[namek]:
+                if E[namek][(ival, jval)] != 0:
+                    #print P[k][i][j]
+                    ijk_exp.append(E[namek][(ival,jval)])
+                    ijk_obs.append(N[namek][(ival,jval)])
+                    ijk_count = ijk_count + 1
+
+                    while s < self.m//2:
+                        names = self.loci[s * 2]
+                        rts_obs = []
+                        rts_exp = []
+
+                        for rval, tval in N[names]:
+                            if E[names][(rval, tval)] != 0:
+                                rts_exp.append(E[names][(rval, tval)])
+                                rts_obs.append(N[names][(rval, tval)])
+                                trs_count = rts_count + 1
+                        LK_ijk = len(self.alinlocus[namek])
+                        LK_rts = len(self.alinlocus[names])
+                        ddof_ijk = 0.5 * LK_ijk * (LK_ijk - 1)
+                        ddof_rts = 0.5 * LK_rts * (LK_rts - 1)
+                        ddof = (ddof_ijk - 1) * (ddof_rts - 1)
+                        tmp = 0
+                        obs = []
+                        exp = []
+                        # wow i put or instead of and and i must have forgot how to program last night
+                        while tmp < len(ijk_obs) and tmp < len(rts_obs):
+                            obs.append(ijk_obs[tmp] * rts_obs[tmp])
+                            exp.append(ijk_exp[tmp] * rts_exp[tmp])
+                            tmp = tmp + 1
+                        if tmp < len(ijk_obs):
+                            obs.append(ijk_obs[tmp])
+                            exp.append(ijk_exp[tmp])
+                            tmp = tmp + 1
+                        elif tmp < len(rts_obs):
+                            obs.append(rts_obs[tmp])
+                            exp.append(rts_exp[tmp])
+                            tmp = tmp + 1
+                        chisq, p = chisquare(obs, exp, ddof)
+                        if p < sigValue:
+                            not_link_loci.append((namek, names))
+                        s = s + 1
+            k = k + 1
+        return not_link_loci
 
 
 
@@ -188,11 +256,15 @@ if __name__ == "__main__":
         else:
             sig_value = 0.5
 
-    HWE_Linkage().compute(genotype, sig_value)
-
+    #HWE_Linkage().compute(genotype, sig_value)
+    hwe = HWE_Linkage()
+    hwe.compute(genotype, sig_value)
         #pop_size, loci, alleles, self.matrix = parse_genotype_file(genotype)
         #self.nhwe_loci, P, L = calc_hwe(pop_size, loci, alleles, self.matrix, sig_value)
         #for locus in self.nhwe_loci:
         #    print(locus)
         # To Karro: this self.mIGHT work, but we ran out of self.memory.. :(
         #ld_loci = calc_lindis(pop_size, loci, alleles, self.matrix, P, L, sig_value)
+
+
+
