@@ -6,6 +6,7 @@ from collections import OrderedDict
 from scipy.stats.stats import chisquare
 import scipy.stats.mstats as mst
 from scipy import stats
+import numpy as np
 
 class HWE_Linkage:
     def __init__(self):
@@ -16,10 +17,14 @@ class HWE_Linkage:
         self.n = 0
         self.m = 0
         self.alinlocus = {}
+        self.detailed = False
+        self.locations = {}
 
     def compute(self, gt_file, sig_value):
         self.parse_genotype_file(gt_file)
+        print("Loci NOT in HWE:")
         self.calc_hwe(sig_value)
+        print("Loci NOT in LE:")
         self.calc_le(sig_value)
 
 
@@ -94,12 +99,15 @@ class HWE_Linkage:
             if not namek in N:
                 N[namek] = {}
                 P[namek] = {}
+                self.locations[namek] = {}
             for i in range(0, self.n):
                 ival = self.matrix[i][k*2]
                 jval = self.matrix[i][k*2+1]
                 if not (ival, jval) in N[namek]:
                     N[namek][(ival,jval)] = 0
+                    self.locations[namek][(ival, jval)] = []
                 N[namek][(ival,jval)] += 1
+                self.locations[namek][(ival, jval)].append(i)
             for pair in N[namek]:
                 P[namek][pair] = float(N[namek][pair])/self.pop_size
             k += 2
@@ -149,18 +157,20 @@ class HWE_Linkage:
             obs = []
             exp = []
             namek = self.loci[k]
-            sumsquarediff = 0
+            #sumsquarediff = 0
             for ival, jval in N[namek]:
                 if (E[namek][(ival,jval)] != 0):
-                    #exp.append(E[namek][(ival,jval)])
-                    #obs.append(N[namek][(ival,jval)])
-                    diff = N[namek][(ival,jval)] - E[namek][(ival,jval)]
-                    sumsquarediff += (diff * diff)/E[namek][(ival,jval)]
+                    exp.append(E[namek][(ival,jval)])
+                    obs.append(N[namek][(ival,jval)])
+                    #diff = N[namek][(ival,jval)] - E[namek][(ival,jval)]
+                    #sumsquarediff += (diff * diff)/E[namek][(ival,jval)]
             Lk = len(self.alinlocus[namek])
             ddof = 0.5 * Lk *(Lk-1)
-            pval = 1 - stats.chi2.cdf(sumsquarediff, ddof)
-            #chisq, pval = mst.chisquare(obs, exp, ddof)
-            if pval < sigValue:
+            #pval = 1 - stats.chi2.cdf(sumsquarediff, ddof)
+            chisq, p = mst.chisquare(np.array(obs), np.array(exp), len(obs)-ddof)
+            if self.detailed:
+               print(namek,'\t',chisq, '\t',ddof)
+            if p < sigValue:
                 not_hwe_loci.append(namek)
         return not_hwe_loci
 
@@ -170,11 +180,11 @@ class HWE_Linkage:
         self.calculate_alleles_loci();
         N, P, E, p = self.calculate_allele_frequencies();
 
-        for locusPair in self.find_not_link_loci(N, E, sig_value):
+        for locusPair in self.find_not_link_loci(N,P, E, sig_value):
             print(locusPair)
 
 
-    def find_not_link_loci(self, N, E, sigValue):
+    def find_not_link_loci(self, N, P, E, sigValue):
         '''
         Determines and returns a list of pairs of loci that are self.not in linkage equilibrium.
         '''
@@ -183,37 +193,48 @@ class HWE_Linkage:
         s = 1
         ijk_count = 0
         rts_count = 0
-        while k < (self.m//2 - 1):
+        while k < self.m - 1:
             s = k + 1
-            namek = self.loci[k * 2]
+            namek = self.loci[k]
             ijk_obs = []
             ijk_exp = []
             for ival, jval in N[namek]:
                 if E[namek][(ival, jval)] != 0:
-                    #print P[k][i][j]
                     ijk_exp.append(E[namek][(ival,jval)])
                     ijk_obs.append(N[namek][(ival,jval)])
                     ijk_count = ijk_count + 1
-
-                    while s < self.m//2:
-                        names = self.loci[s * 2]
+                    locations_ijk = self.locations[namek][(ival, jval)]
+                    while s < self.m:
+                        names = self.loci[s]
+                        ijkrts_obs = []
+                        ijkrts_exp = []
                         rts_obs = []
                         rts_exp = []
-
+                        sumsquarediff = 0
                         for rval, tval in N[names]:
                             if E[names][(rval, tval)] != 0:
+                                locations_rts = self.locations[names][(rval, tval)]
+                                observed = len(set(locations_ijk) & set(locations_rts))
+                                ijkrts_obs.append(observed)
+                                expected = P[namek][(ival,jval)] * P[names][(rval, tval)] * self.pop_size
+                                ijkrts_exp.append(expected)
+                                diff = observed - expected
+                                sumsquarediff += (diff * diff)/expected
                                 rts_exp.append(E[names][(rval, tval)])
                                 rts_obs.append(N[names][(rval, tval)])
-                                trs_count = rts_count + 1
+                                rts_count = rts_count + 1
+                                #print(sumsquarediff)
                         LK_ijk = len(self.alinlocus[namek])
                         LK_rts = len(self.alinlocus[names])
-                        ddof_ijk = 0.5 * LK_ijk * (LK_ijk - 1)
-                        ddof_rts = 0.5 * LK_rts * (LK_rts - 1)
+                        ddof_ijk =LK_ijk * (LK_ijk - 1) * .5
+                        ddof_rts =LK_rts * (LK_rts - 1) * .5
                         ddof = (ddof_ijk - 1) * (ddof_rts - 1)
                         tmp = 0
                         obs = []
                         exp = []
+                        
                         # wow i put or instead of and and i must have forgot how to program last night
+                        
                         while tmp < len(ijk_obs) and tmp < len(rts_obs):
                             obs.append(ijk_obs[tmp] * rts_obs[tmp])
                             exp.append(ijk_exp[tmp] * rts_exp[tmp])
@@ -226,7 +247,12 @@ class HWE_Linkage:
                             obs.append(rts_obs[tmp])
                             exp.append(rts_exp[tmp])
                             tmp = tmp + 1
-                        chisq, p = chisquare(obs, exp, ddof)
+                        pval = 1 - stats.chi2.cdf(sumsquarediff, ddof)
+                        chisq, p = chisquare(obs, exp, len(obs) - ddof)
+                        
+                        #chisq, p = chisquare(ijkrts_obs, ijkrts_exp, len(ijkrts_obs) - ddof)
+                        if self.detailed:
+                            print((namek, names),'\t',chisq, '\t',ddof)
                         if p < sigValue:
                             not_link_loci.append((namek, names))
                         s = s + 1
@@ -237,25 +263,20 @@ class HWE_Linkage:
 
 
 if __name__ == "__main__":
-    if len(sys.argv) < 3:
+    if len(sys.argv) < 2:
         genotypes = ["african_american", "american", "asian_american", "caucasian_american", "hispanic_american"]
         sig_value = 0.05
         for genotype in genotypes:
             hwe = HWE_Linkage()
-            print(genotype + ":")
-            print("Loci NOT in HWE:")
+            print('\n' + genotype.upper() + ":")
             genotype_fname = "genotypes/genotype." + genotype + ".csv"
             hwe.compute(genotype_fname, sig_value)
-            print()
-            print("Loci NOT in LE:")
-            hwe.calc_le(sig_value)
-            print()
     else:
         genotype = sys.argv[1]
         if len(sys.argv) > 2:
             sig_value = float(sys.argv[2])
         else:
-            sig_value = 0.5
+            sig_value = 0.05
         hwe = HWE_Linkage()
         hwe.compute(genotype, sig_value)
 
