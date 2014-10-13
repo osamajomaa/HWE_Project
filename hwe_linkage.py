@@ -219,8 +219,8 @@ def ld_chi_square(E, n, m, P, L, sigValue, loci, pop_size):
                             if (E[k][s][i][j][r][t] != 0):
                                 exp.append(E[k][s][i][j][r][t])
                                 obs.append(P[k][s][i][j][r][t])
-            ddofk = 0.5 * len(L[loci[k*2]])*(len(L[loci[k*2]])-1)
-            ddofs = 0.5 * len(L[loci[s*2]])*(len(L[loci[s*2]])-1)
+            ddofk = 0.5 * len(L[loci[k*2]])*(len(L[loci[k*2]])+1)
+            ddofs = 0.5 * len(L[loci[s*2]])*(len(L[loci[s*2]])+1)
             ddof = (ddofk-1) * (ddofs-1)
             chisq, p = chisquare(obs, exp, ddof)
             if (p < sigValue):
