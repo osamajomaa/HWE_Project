@@ -182,7 +182,14 @@ class HWE_Linkage:
 
         for locusPair in self.find_not_link_loci(N,P, E, sig_value):
             print(locusPair)
+    
+    def num_occurrences(self, namek, ival, jval, names, rval, tval):
+        locations_ijk = self.locations[namek][(ival, jval)]
+        locations_rts = self.locations[names][(rval, tval)]
+        return len(list(set(locations_ijk) & set(locations_rts)))
 
+    def num_expected(self, P, namek, ival, jval, names, rval, tval):
+        return P[namek][(ival, jval)] * P[names][(rval, tval)] * self.pop_size
 
     def find_not_link_loci(self, N, P, E, sigValue):
         '''
@@ -203,7 +210,7 @@ class HWE_Linkage:
                     ijk_exp.append(E[namek][(ival,jval)])
                     ijk_obs.append(N[namek][(ival,jval)])
                     ijk_count = ijk_count + 1
-                    locations_ijk = self.locations[namek][(ival, jval)]
+                    #locations_ijk = self.locations[namek][(ival, jval)]
                     while s < self.m:
                         names = self.loci[s]
                         ijkrts_obs = []
@@ -212,44 +219,27 @@ class HWE_Linkage:
                         rts_exp = []
                         sumsquarediff = 0
                         for rval, tval in N[names]:
-                            if E[names][(rval, tval)] != 0:
-                                locations_rts = self.locations[names][(rval, tval)]
-                                observed = len(set(locations_ijk) & set(locations_rts))
-                                ijkrts_obs.append(observed)
-                                expected = P[namek][(ival,jval)] * P[names][(rval, tval)] * self.pop_size
-                                ijkrts_exp.append(expected)
-                                diff = observed - expected
-                                sumsquarediff += (diff * diff)/expected
-                                rts_exp.append(E[names][(rval, tval)])
-                                rts_obs.append(N[names][(rval, tval)])
-                                rts_count = rts_count + 1
-                                #print(sumsquarediff)
+                            N_ijkrts = self.num_occurrences(namek, ival, jval, names, rval, tval)
+                            E_ijkrts = self.num_expected(P, namek, ival, jval, names, rval, tval)
+                            if E_ijkrts != 0:
+                                ijkrts_obs.append(N_ijkrts)
+                                ijkrts_exp.append(E_ijkrts)
+                                diff = N_ijkrts - E_ijkrts
+                                sumsquarediff += (diff * diff)/E_ijkrts
                         LK_ijk = len(self.alinlocus[namek])
                         LK_rts = len(self.alinlocus[names])
-                        ddof_ijk =LK_ijk * (LK_ijk - 1) * .5
-                        ddof_rts =LK_rts * (LK_rts - 1) * .5
+                        ddof_ijk =LK_ijk * (LK_ijk + 1) * .5
+                        ddof_rts =LK_rts * (LK_rts + 1) * .5
                         ddof = (ddof_ijk - 1) * (ddof_rts - 1)
                         tmp = 0
                         obs = []
                         exp = []
                         
-                        # wow i put or instead of and and i must have forgot how to program last night
-                        
-                        while tmp < len(ijk_obs) and tmp < len(rts_obs):
-                            obs.append(ijk_obs[tmp] * rts_obs[tmp])
-                            exp.append(ijk_exp[tmp] * rts_exp[tmp])
-                            tmp = tmp + 1
-                        if tmp < len(ijk_obs):
-                            obs.append(ijk_obs[tmp])
-                            exp.append(ijk_exp[tmp])
-                            tmp = tmp + 1
-                        elif tmp < len(rts_obs):
-                            obs.append(rts_obs[tmp])
-                            exp.append(rts_exp[tmp])
-                            tmp = tmp + 1
+
                         pval = 1 - stats.chi2.cdf(sumsquarediff, ddof)
-                        chisq, p = chisquare(obs, exp, len(obs) - ddof)
                         
+                        chisq, p = chisquare(ijkrts_obs, ijkrts_exp, len(ijkrts_obs) - ddof)
+                        print((namek, names),'\t',chisq, '\t',ddof)
                         #chisq, p = chisquare(ijkrts_obs, ijkrts_exp, len(ijkrts_obs) - ddof)
                         if self.detailed:
                             print((namek, names),'\t',chisq, '\t',ddof)
