@@ -97,8 +97,8 @@ class HWE_Linkage:
         for k in range(0, self.m):
             namek = self.loci[k]
             if not namek in N:
-                N[namek] = {}
-                P[namek] = {}
+                N[namek] = OrderedDict()#{}
+                P[namek] = OrderedDict()#{}
                 self.locations[namek] = {}
             for i in range(0, self.n):
                 ival = self.matrix[i][k*2]
@@ -183,13 +183,13 @@ class HWE_Linkage:
         for locusPair in self.find_not_link_loci(N,P, E, sig_value):
             print(locusPair)
     
-    def num_occurrences(self, namek, ival, jval, names, rval, tval):
-        locations_ijk = self.locations[namek][(ival, jval)]
-        locations_rts = self.locations[names][(rval, tval)]
+    def num_occurrences(self, namek, pairk, names, pairs):
+        locations_ijk = self.locations[namek][pairk]
+        locations_rts = self.locations[names][pairs]
         return len(list(set(locations_ijk) & set(locations_rts)))
 
-    def num_expected(self, P, namek, ival, jval, names, rval, tval):
-        return P[namek][(ival, jval)] * P[names][(rval, tval)] * self.pop_size
+    def num_expected(self, P, namek, pairk, names, pairs):
+        return P[namek][pairk] * P[names][pairs] * self.pop_size
 
     def find_not_link_loci(self, N, P, E, sigValue):
         '''
@@ -203,49 +203,35 @@ class HWE_Linkage:
         while k < self.m - 1:
             s = k + 1
             namek = self.loci[k]
-            ijk_obs = []
-            ijk_exp = []
-            for ival, jval in N[namek]:
-                if E[namek][(ival, jval)] != 0:
-                    ijk_exp.append(E[namek][(ival,jval)])
-                    ijk_obs.append(N[namek][(ival,jval)])
-                    ijk_count = ijk_count + 1
-                    #locations_ijk = self.locations[namek][(ival, jval)]
-                    while s < self.m:
-                        names = self.loci[s]
-                        ijkrts_obs = []
-                        ijkrts_exp = []
-                        rts_obs = []
-                        rts_exp = []
-                        sumsquarediff = 0
-                        for rval, tval in N[names]:
-                            N_ijkrts = self.num_occurrences(namek, ival, jval, names, rval, tval)
-                            E_ijkrts = self.num_expected(P, namek, ival, jval, names, rval, tval)
-                            if E_ijkrts != 0:
-                                ijkrts_obs.append(N_ijkrts)
-                                ijkrts_exp.append(E_ijkrts)
-                                diff = N_ijkrts - E_ijkrts
-                                sumsquarediff += (diff * diff)/E_ijkrts
-                        LK_ijk = len(self.alinlocus[namek])
-                        LK_rts = len(self.alinlocus[names])
-                        ddof_ijk =LK_ijk * (LK_ijk + 1) * .5
-                        ddof_rts =LK_rts * (LK_rts + 1) * .5
-                        ddof = (ddof_ijk - 1) * (ddof_rts - 1)
-                        tmp = 0
-                        obs = []
-                        exp = []
-                        
-
-                        pval = 1 - stats.chi2.cdf(sumsquarediff, ddof)
-                        
-                        chisq, p = chisquare(ijkrts_obs, ijkrts_exp, len(ijkrts_obs) - ddof)
-                        print((namek, names),'\t',chisq, '\t',ddof)
-                        #chisq, p = chisquare(ijkrts_obs, ijkrts_exp, len(ijkrts_obs) - ddof)
-                        if self.detailed:
-                            print((namek, names),'\t',chisq, '\t',ddof)
-                        if p < sigValue:
-                            not_link_loci.append((namek, names))
-                        s = s + 1
+            while s < self.m:
+                names = self.loci[s]
+                ijkrts_obs = []
+                ijkrts_exp = []
+                sumsquarediff = 0
+                for pairk in N[namek]:
+                    for pairs in N[names]:
+                        N_ijkrts = self.num_occurrences(namek, pairk, names, pairs)
+                        E_ijkrts = self.num_expected(P, namek, pairk, names, pairs)
+                        if E_ijkrts != 0:
+                            ijkrts_obs.append(N_ijkrts)
+                            ijkrts_exp.append(E_ijkrts)
+                            diff = N_ijkrts - E_ijkrts
+                            sumsquarediff += (diff * diff)/E_ijkrts
+                LK_ijk = len(self.alinlocus[namek])
+                LK_rts = len(self.alinlocus[names])
+                ddof_ijk =LK_ijk * (LK_ijk + 1) * .5
+                ddof_rts =LK_rts * (LK_rts + 1) * .5
+                ddof = (ddof_ijk - 1) * (ddof_rts - 1)
+                tmp = 0
+                pval = 1 - stats.chi2.cdf(sumsquarediff, ddof)
+                
+                chisq, p = chisquare(ijkrts_obs, ijkrts_exp, len(ijkrts_obs) - ddof)
+                #chisq, p = chisquare(ijkrts_obs, ijkrts_exp, len(ijkrts_obs) - ddof)
+                if self.detailed:
+                    print((namek, names),'\t',chisq, '\t',ddof)
+                if p < sigValue:
+                    not_link_loci.append((namek, names))
+                s = s + 1
             k = k + 1
         return not_link_loci
 
