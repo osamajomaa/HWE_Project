@@ -12,9 +12,9 @@ class SimPop:
         self.pop_size = pop_size
         self.outfile = outfile
         self.allels_dist = OrderedDict()
-    
+
     '''
-    A weighted random selection algorithm. 
+    A weighted random selection algorithm.
     @param weights: Weights (distribution) of allels for each locus
     '''
     def pick_allel(self, weights):
@@ -23,7 +23,7 @@ class SimPop:
             accProb -= weights[allel]
             if (accProb <= 0):
                 return allel
-    
+
     '''
     Read the input file which contains the allels distribution to an ordered dictionary the key is the locus
     name and value is the list of allels distribution in that locus
@@ -33,7 +33,7 @@ class SimPop:
             for line in f:
                 dist = line.split(",")
                 self.allels_dist[dist[0]] = [float(a.strip()) for a in dist[1:]]
-    
+
     '''
     Create the simulated population file. First row contains the loci names where each name is written twice
     as each individual will have two allels. Then for each row, the first value is the individual id
@@ -44,7 +44,7 @@ class SimPop:
         for locus in self.allels_dist.keys():
             title_row.append(locus)
             title_row.append(locus)
-        with open(self.outfile, 'wb') as f:
+        with open(self.outfile, 'w') as f:
             writer = csv.writer(f, delimiter=',')
             writer.writerow(title_row)
             for p in range(0, self.pop_size):
@@ -65,15 +65,14 @@ Command line arguments:
 '''
 if __name__ == "__main__":
     if (len(sys.argv) < 4):
-        print "Please enter exactly three arguments. Input file name, output file name and the population size"
+        print("Please enter exactly three arguments. Input file name, output file name and the population size")
         sys.exit(0)
-    
+
     sp = SimPop(sys.argv[1], sys.argv[2], int(sys.argv[3]))
-    
+
     #Parse the input file first
     sp.parse_infile()
     #Generate the simulated population genotype file
     sp.create_pop_genotype()
-    
-    print "Done! Check the file", sys.argv[2]
 
+    print("Done! Check the file", sys.argv[2])
