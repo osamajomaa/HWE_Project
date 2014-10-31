@@ -75,4 +75,29 @@ class Family:
 			i = i + 2
 		return (numMatches / numLoci)
 		
+	# significance will be used to determine how good a percent match is
+	def compareManySiblings(self, numTrials, sig):
+		i = 0;
+		significantMatches = 0
+		# perform the experiment numTrials times
+		while i < numTrials:
+			s1 = generateChild(self.parent1, self.parent2)
+			s2 = generateChild(self.parent1, self.parent2)
+			match = percentMatch(s1, s2)
+			if match > sig:
+				significantMatches = significantMatches +1
+			i = i + 1
+		return (significantMatches / numTrials)
 	
+	def compareManyCousins(self, numTrials, sig):
+		i = 0;
+		significantMatches = 0
+		# perform the experiment numTrials times
+		while i < numTrials:
+			cusions = getCousins(self.parent1, self.parent2)
+			match = percentMatch(cusions[0], cusions[1])
+			if match > sig:
+				significantMatches = significantMatches +1
+			i = i + 1
+		return (significantMatches / numTrials)
+		
