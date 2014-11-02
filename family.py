@@ -17,9 +17,9 @@ class Family:
 	# parent1 = random row
 	# parent2 = random row
 	def __init__(self, dna):
-		csv = dna
-		self.parent1 = getRandomPerson()
-		self.parent2 = getRandomPerson()
+		self.csv = dna
+		self.parent1 = self.getRandomPerson()
+		self.parent2 = self.getRandomPerson()
 	
 	# Gets a random row
 	# The elements of the rows are the name's of the allel
@@ -39,7 +39,7 @@ class Family:
 			rand = random.choice([0,1])
 			if(rand == 0):
 				child.append(parent1[i])
-			else if(rand == 1):
+			elif(rand == 1):
 				child.append(parent2[i])
 			else:
 				print("There was an error choosing an allel.")
@@ -69,7 +69,7 @@ class Family:
 		numLoci = len(person1) / 2
 		i = 0
 		numMatches = 0
-		while i < numLoci
+		while i < numLoci:
 			if(person1[i] == person2[i] and person1[i + 1] == person2[i + 1]):
 				numMatches = numMatches + 1
 			i = i + 2
